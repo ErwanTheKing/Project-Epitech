@@ -1,0 +1,12 @@
+unit_tests
+a.out
+libmy.a
+libmy.h.pch
+*.o
+libmy.a
+concat_params
+main.o
+struct_params.h
+build.sh
+libmy
+do-op
