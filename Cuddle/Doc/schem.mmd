@@ -1,0 +1,84 @@
+flowchart TB
+
+    CSV["📄 CSV file"] -->|df_read_csv| DF
+
+    subgraph DF["dataframe_t"]
+        direction TB
+        HDR["data[0][j] → infos_data_t\nname: char*\ntype: column_type_t\n(BOOL·INT·UINT·FLOAT·STRING)"]
+        CELLS["data[i][j]  i≥1 → char* raw cell"]
+        META["nb_rows · nb_columns · separator"]
+    end
+
+    DF -->|df_write_csv| CSV2["📄 output CSV file"]
+
+    subgraph CORE["Core — libcuddle"]
+        direction LR
+        RC["df_read_csv\nparse CSV\nauto-detect types"]
+        WC["df_write_csv\nserialize back to CSV"]
+    end
+
+    subgraph BASICS["Basics"]
+        direction LR
+        HEAD["df_head(df, n)\nfirst n rows"]
+        TAIL["df_tail(df, n)\nlast n rows"]
+        SHAPE["df_shape(df)\n{nb_rows, nb_columns}"]
+        INFO["df_info(df)\nprint col names + types"]
+        DESC["df_describe(df)\nstatistical summary [stub]"]
+    end
+
+    subgraph FILTER["Filtering"]
+        FILT["df_filter(df, col, fn)\nkeep rows where fn(cell)==true [stub]"]
+    end
+
+    subgraph SORT["Sorting"]
+        SRT["df_sort(df, col, cmp)\nsort rows by column [stub]"]
+    end
+
+    subgraph TRANSFORM["Transformation"]
+        APPLY["df_apply(df, col, fn)\napply fn to every cell [stub]"]
+        TOTYPE["df_to_type(df, col, type)\ncast column to target type [stub]"]
+    end
+
+    subgraph AGG["Aggregation"]
+        GBY["df_groupby(df, by, cols[], fn)\ngroup + aggregate [stub]"]
+    end
+
+    subgraph UTILS["Utilities"]
+        direction TB
+        GETV["df_get_value(df, row, col)\ntyped value at (row, col)"]
+        GETVS["df_get_values(df, col)\nall values of a column [stub]"]
+        GETUNIQ["df_get_unique_values(df, col)\ndeduplicated values [stub]"]
+        FREE["df_free(df)\nrecursive free"]
+        FT["find_type(data, prev)\nauto-detect scalar type\nBOOL→INT→UINT→FLOAT→STRING"]
+        CONV["str_to_bool · str_to_int\nstr_to_unsigned_int · str_to_float\nstr_to_str"]
+        PRINT["my_putchar · my_putstr\nmy_put_nbr · my_putnbr_base\nmy_putfloat · my_show_word_array"]
+        STRING["my_strlen · my_strcmp · my_strncmp\nmy_strdup · my_strndup\nmy_strcpy · my_strncpy · my_strconcat · my_strncat\nmy_strstr · my_revstr\nmy_strupcase · my_strlowcase · my_strcapitalize\nmy_str_to_word_array · my_nbr_to_str"]
+        STRCHK["my_str_isnum · my_str_isfloat · my_str_isnegnum\nmy_str_isalpha · my_str_islower · my_str_isupper\nmy_str_isprintable · my_char_isnum"]
+        MATH["my_getnbr · my_isneg · my_swap · len_nb\nmy_is_prime · my_find_prime_sup\nmy_compute_square_root · my_compute_power_rec\nminimum_int_from_list(count, ...)"]
+        MEM["free_array · free_many · free_many_arrays"]
+        ARR["my_array_len · sort_word_array\nmy_char_array_dup · cmp_alpha"]
+        IO["openator(path)  read file → string\nget_file_size_stat\nget_file_size_no_stat"]
+        LIST["init_list · push_front · push_back\npop_front · pop_back · pop_at\nget_front · get_back · get_at\ninsert_node · list_len\nsearch_in_list(head, data, cmp)\nattach_list_to_back · free_list\ninvert_list · get_to_middle\nmerge_sort_lists(head, cmp)\nmy_linked_list_to_word_array\nmy_wordarray_to_linked_list"]
+    end
+
+    DF --> BASICS
+    DF --> FILTER
+    DF --> SORT
+    DF --> TRANSFORM
+    DF --> AGG
+    DF --> UTILS
+
+    BASICS --> DF2["new dataframe_t (copy)"]
+    FILTER --> DF2
+    SORT   --> DF2
+    TRANSFORM --> DF2
+    AGG    --> DF2
+
+    subgraph TYPEINFER["Type inference  (df_read_csv internal)"]
+        direction LR
+        TI1["scan cell → find_type(cell, prev)"]
+        TI2{"escalation\nBOOL → INT → UINT\n→ FLOAT → STRING"}
+        TI1 --> TI2
+    end
+
+    RC --> TYPEINFER
