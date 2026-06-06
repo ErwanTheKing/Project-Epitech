@@ -1,0 +1,154 @@
+/*
+** EPITECH PROJECT, 2026
+** rays
+** File description:
+** rays
+*/
+
+#include "../../include/wolf3d.h"
+#include <math.h>
+
+void draw_wall(wolf_t *w, sfVector2f *wall, window_t *win, int column)
+{
+    float top = (win->height - wall->y) / 2.0f + w->player->z;
+    float fog = 1.0f - wall->x / FOG_MAX_DIST;
+    int screen_y = 0;
+    int text_y = 0;
+    sfVector2i id;
+    wall_t *wll = w->game->wall;
+
+    fog = fog < 0.0f ? 0.0f : fog;
+    for (int y = 0; y < (int)wall->y; y++) {
+        screen_y = (int)top + y;
+        if (screen_y < 0 || screen_y >= win->height)
+            continue;
+        text_y = (int)(((float)y / wall->y) * TEX_SIZE);
+        text_y = (text_y < 0) ? 0 : text_y;
+        text_y = (text_y > TEX_SIZE - 1) ? TEX_SIZE - 1 : text_y;
+        id.x = (text_y * TEX_SIZE + wll->wall_index) * 4;
+        id.y = ((int)screen_y * win->width + (int)column) * 4;
+        if (!(id.y < 0 || id.y >= win->width * win->height * 4))
+            create_fog_pixel(wll, &(sfVector2i){id.x, id.y}, wll->wall, fog);
+    }
+}
+
+static void draw_wall_column(wolf_t *wolf,
+    int column, float distance, wall_t *wall)
+{
+    float proj_dist = (wolf->window_data->width / 2.0f) / tanf(FOV / 2.0f);
+    float wall_height = (1.0f / distance) * proj_dist;
+
+    wall->wall_index = (wall->wall_index < 0) ? 0 : wall->wall_index;
+    wall->wall_index = (wall->wall_index > TEX_SIZE - 1) ?
+        TEX_SIZE - 1 : wall->wall_index;
+    draw_wall(wolf, &(sfVector2f){distance, wall_height},
+        wolf->window_data, column);
+}
+
+static void get_wall_index(wall_t *wall, player_t *player,
+    sfVector2f *ray_dir, float distance)
+{
+    float hx = player->x + ray_dir->x * distance;
+    float hy = player->y + ray_dir->y * distance;
+    float fx = fmodf(hx, 1.0f);
+    float fy = fmodf(hy, 1.0f);
+    float wall_frac = (fminf(fx, 1.0f - fx) < fminf(fy, 1.0f - fy))
+        ? fy : fx;
+
+    wall->wall_index = (int)(wall_frac * TEX_SIZE);
+    if (wall->wall_index < 0)
+        wall->wall_index = 0;
+    if (wall->wall_index > TEX_SIZE - 1)
+        wall->wall_index = TEX_SIZE - 1;
+}
+
+void cast_all_rays(wolf_t *wolf, window_t *window_data, player_t *player,
+    game_t *game)
+{
+    sfVector2f dir = {cosf(player->angle), sinf(player->angle)};
+    float plane_len = tanf(FOV / 2.0f);
+    float pl_x = -sinf(player->angle) * plane_len;
+    float pl_y = cosf(player->angle) * plane_len;
+    sfVector2f data = {0, 0};
+    sfVector2f raydir = {dir.x + pl_x * data.x, dir.y + pl_y * data.x};
+
+    memset(game->wall->pixel, 0, window_data->height * window_data->width * 4);
+    draw_floor_ceiling_rows(wolf);
+    for (int i = 0; i < window_data->width; i++) {
+        data.x = 2.0f * i / window_data->width - 1.0f;
+        raydir.x = dir.x + pl_x * data.x;
+        raydir.y = dir.y + pl_y * data.x;
+        data.y = cast_ray(game->wall, player, raydir.x, raydir.y);
+        if (data.y < 0.1f)
+            data.y = 0.1f;
+        get_wall_index(game->wall, player, &raydir, data.y);
+        draw_wall_column(wolf, i, data.y, game->wall);
+        game->zbuffer[i] = data.y;
+    }
+}
+
+static void init_brightness_shader(wolf_t *wolf)
+{
+    if (!wolf || wolf->brightness_shader_ready)
+        return;
+    wolf->brightness_shader_ready = sfTrue;
+    if (sfShader_isAvailable())
+        wolf->brightness_shader = sfShader_createFromFile(NULL, NULL,
+            "assets/brightness.frag");
+}
+
+static float get_brightness(wolf_t *wolf)
+{
+    float brightness = 1.0f;
+
+    if (!wolf || !wolf->settings)
+        return 1.0f;
+    brightness = (float)wolf->settings->brightness / 50.0f;
+    return brightness;
+}
+
+static void set_flashlight_uniforms(wolf_t *wolf)
+{
+    float enabled = 0.0f;
+
+    if (!wolf || !wolf->brightness_shader)
+        return;
+    if (wolf->flashlight_on)
+        enabled = 1.0f;
+    sfShader_setFloatUniform(wolf->brightness_shader, "flashlight_on",
+        enabled);
+    sfShader_setFloatUniform(wolf->brightness_shader, "flashlight_radius",
+        0.35f);
+    sfShader_setFloatUniform(wolf->brightness_shader, "flashlight_softness",
+        0.15f);
+    sfShader_setFloatUniform(wolf->brightness_shader, "flashlight_intensity",
+        2.4f);
+}
+
+static sfBool fill_shader_states(wolf_t *wolf, sfRenderStates *states)
+{
+    if (!wolf || !wolf->brightness_shader)
+        return sfFalse;
+    states->blendMode = sfBlendAlpha;
+    states->transform = sfTransform_Identity;
+    states->texture = NULL;
+    states->shader = wolf->brightness_shader;
+    sfShader_setFloatUniform(wolf->brightness_shader, "brightness",
+        get_brightness(wolf));
+    set_flashlight_uniforms(wolf);
+    return sfTrue;
+}
+
+void render_pixels(wolf_t *wolf, game_t *game, window_t *win)
+{
+    sfRenderStates states;
+
+    sfTexture_updateFromPixels(game->wall->texture, game->wall->pixel,
+        win->width, win->height, 0, 0);
+    init_brightness_shader(wolf);
+    if (fill_shader_states(wolf, &states)) {
+        sfRenderWindow_drawSprite(win->window, game->wall->sprite, &states);
+        return;
+    }
+    sfRenderWindow_drawSprite(win->window, game->wall->sprite, NULL);
+}
