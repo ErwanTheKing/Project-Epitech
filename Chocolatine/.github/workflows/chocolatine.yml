@@ -1,0 +1,291 @@
+on:
+  push:
+    branches-ignore:
+      - 'no-ga/**'
+  pull_request:
+    branches-ignore:
+      - 'no-ga/**'
+
+env:
+  MIRROR_SSH_URL: git@github.com:EpitechPGE1-2025/G-DOP-200-NCE-2-1-chocolatine-1.git
+  MIRROR_SSH_NAME: EpitechPGE1-2025/G-DOP-200-NCE-2-1-chocolatine-1
+  EXECUTABLES: "test"
+  FUNCTION_CHECK_MODE: "authorized"
+  FUNCTIONS: "malloc"
+
+jobs:
+  check_runner:
+    runs-on: ${{ github.repository == vars.MIRROR_SSH_NAME && 'self-hosted' || 'ubuntu-latest' }}
+    outputs:
+      is_mirror: ${{ steps.check.outputs.is_mirror }}
+    steps:
+      - id: check
+        run: |
+          if [[ "${{ github.repository }}" == "${{ env.MIRROR_SSH_NAME }}" ]]; then
+            echo "is_mirror=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_mirror=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  check_compilation_and_coding_style:
+    needs: check_runner
+    if: needs.check_runner.outputs.is_mirror == 'false'
+    runs-on: ubuntu-latest
+    container:
+      image: epitechcontent/epitest-docker
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Start banana
+        shell: bash --noprofile --norc {0}
+        run: |
+          banana_count=0
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^(.+):([0-9]+):[[:space:]]*\[[^]]+\][[:space:]]*\[Info\][[:space:]]*(.+)$ ]]; then
+              echo "::error title=Info coding style error,file=${BASH_REMATCH[1]},line=${BASH_REMATCH[2]}::${BASH_REMATCH[3]}"
+              banana_count=$((banana_count + 1))
+            elif [[ "$line" =~ ^(.+):([0-9]+):[[:space:]]*\[[^]]+\][[:space:]]*\[Minor\][[:space:]]*(.+)$ ]]; then
+              echo "::error title=Minor coding style error,file=${BASH_REMATCH[1]},line=${BASH_REMATCH[2]}::${BASH_REMATCH[3]}"
+              banana_count=$((banana_count + 1))
+            elif [[ "$line" =~ ^(.+):([0-9]+):[[:space:]]*\[[^]]+\][[:space:]]*\[Major\][[:space:]]*(.+)$ ]]; then
+              echo "::error title=Major coding style error,file=${BASH_REMATCH[1]},line=${BASH_REMATCH[2]}::${BASH_REMATCH[3]}"
+              banana_count=$((banana_count + 1))
+            fi
+          done < <(banana-check-repo . 2>&1)
+
+          echo "banana_count=$banana_count" >> "$GITHUB_ENV"
+
+      - name: Compile and annotate
+        shell: bash --noprofile --norc {0}
+        run: |
+          output=$(timeout 2m make -k CC=epiclang 2>&1)
+          exit_code=$?
+
+          if [ "$exit_code" -eq 124 ]; then
+            echo "::error::Make timed out after 2 minutes"
+            exit 1
+          fi
+
+          style_count=0
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^([^:]+):([0-9]+):([0-9]+):[[:space:]]+(warning|error):[[:space:]]+\[Banana\][[:space:]]+\[(Major|Minor|Info)\][[:space:]]+(.+)$ ]]; then
+              file="${BASH_REMATCH[1]}"
+              line_num="${BASH_REMATCH[2]}"
+              level="${BASH_REMATCH[5]}"
+              message="${BASH_REMATCH[6]}"
+              echo "::error title=${level} coding style error,file=${file},line=${line_num}::${message}"
+              style_count=$((style_count + 1))
+            fi
+          done <<< "$output"
+
+          if [ "$style_count" -gt 0 ] || [ "${banana_count:-0}" -gt 0 ]; then
+            exit 1
+          fi
+
+      - name: Clean
+        run: make clean
+
+      - name: Verif executables
+        shell: bash --noprofile --norc {0}
+        run: |
+          for file in $EXECUTABLES; do
+            if [[ ! -f "$file" ]]; then
+              echo "::error title=Executable not found::$file not found"
+              exit 1
+            fi
+            if [[ ! -x "$file" ]]; then
+              echo "::error title=Executable not executable::$file not executable"
+              exit 1
+            fi
+          done
+
+  check_banned_functions:
+    runs-on: ubuntu-latest
+    needs: check_compilation_and_coding_style
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check functions
+        shell: bash --noprofile --norc {0}
+        run: |
+          output=$(timeout 2m make -k CC=gcc CFLAGS="-O0 -g3 -fno-builtin -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0" 2>&1)
+          exit_code=$?
+
+          if [ "$exit_code" -eq 124 ]; then
+            echo "::error::Make timed out after 2 minutes"
+            exit 1
+          fi
+
+          if [ "$exit_code" -ne 0 ]; then
+            echo "::error::Make failed with exit code $exit_code, cannot check functions"
+            exit 1
+          fi
+
+          annotate_with_addr2line() {
+            local binary="$1"
+            local pattern="$2"
+            local label="$3"
+            local display_name="$4"
+            local emitted=1
+
+            local addrs
+            addrs=$(objdump -d "$binary" 2>/dev/null \
+              | grep -E "call.*<(_?(${pattern}))(@plt)?>" \
+              | grep -oP "^\s*\K[0-9a-f]+(?=:)" || true)
+
+            [[ -z "$addrs" ]] && return 1
+
+            while IFS= read -r addr; do
+              [[ -z "$addr" ]] && continue
+
+              local result file line
+              result=$(addr2line -e "$binary" -f -i "$addr" 2>/dev/null)
+              file=$(echo "$result" | sed -n '2p' | cut -d: -f1)
+              line=$(echo "$result" | sed -n '2p' | cut -d: -f2)
+
+              if [[ "$file" == "??" || -z "$file" ]]; then
+                continue
+              fi
+
+              file="${file#$PWD/}"
+              echo "::error title=${label},file=${file},line=${line}::${display_name}"
+              emitted=0
+            done <<< "$addrs"
+
+            if [[ $emitted -eq 0 ]]; then
+              return 0
+            fi
+            return 1
+          }
+
+          found=0
+
+          for binary in $EXECUTABLES; do
+            if [[ ! -f "$binary" ]]; then
+              echo "::warning title=Function Check::$binary not found, skipping"
+              continue
+            fi
+
+            if [[ "$FUNCTION_CHECK_MODE" == "banned" ]]; then
+              for func in $FUNCTIONS; do
+                if [[ "$func" == "printf" ]]; then
+                  nm_output=$(nm "$binary" 2>/dev/null \
+                    | awk '$1 == "U" {print $2}' \
+                    | sed 's/@.*//' \
+                    | sed 's/^_//' \
+                    | grep -E '^(printf|__printf_chk|puts)$' || true)
+
+                  if [[ -n "$nm_output" ]]; then
+                    if annotate_with_addr2line "$binary" "printf|__printf_chk|puts" "Banned Function" "printf"; then
+                      :
+                    else
+                      echo "::error title=Banned Function::printf"
+                    fi
+                    found=$((found + 1))
+                  fi
+                else
+                  nm_output=$(nm "$binary" 2>/dev/null \
+                    | awk '$1 == "U" {print $2}' \
+                    | sed 's/@.*//' \
+                    | sed 's/^_//' \
+                    | grep -E "^${func}$" || true)
+
+                  if [[ -n "$nm_output" ]]; then
+                    if annotate_with_addr2line "$binary" "$func" "Banned Function" "$func"; then
+                      :
+                    else
+                      echo "::error title=Banned Function::${func}"
+                    fi
+                    found=$((found + 1))
+                  fi
+                fi
+              done
+
+            elif [[ "$FUNCTION_CHECK_MODE" == "authorized" ]]; then
+              symbols=$(nm "$binary" 2>/dev/null | grep -E "^[[:space:]]*U[[:space:]]+" || true)
+
+              while IFS= read -r symbol; do
+                [[ -z "$symbol" ]] && continue
+
+                func=$(echo "$symbol" | awk '{print $NF}' | sed 's/@.*//' | sed 's/^_//')
+                [[ -z "$func" ]] && continue
+                case "$func" in
+                  __*|_libc_*|libc_*|_IO_*|IO_*|_dl_*|dl_*|_start|start|_init|init|_fini|fini)
+                  continue
+                  ;;
+                esac
+
+                authorized=0
+                for allowed in $FUNCTIONS; do
+                  [[ "$func" == "$allowed" ]] && authorized=1 && break
+                done
+
+                if [[ $authorized -eq 0 ]]; then
+                  if annotate_with_addr2line "$binary" "$func" "Unauthorized Function" "$func"; then
+                    :
+                  else
+                    echo "::error title=Unauthorized Function::${func}"
+                  fi
+                  found=$((found + 1))
+                fi
+              done <<< "$symbols"
+
+            else
+              echo "::error::FUNCTION_CHECK_MODE must be 'banned' or 'authorized'"
+              exit 1
+            fi
+          done
+
+          if [ "$found" -gt 0 ]; then
+            exit 1
+          fi
+
+  run_tests:
+    runs-on: ubuntu-latest
+    needs: check_banned_functions
+    container:
+      image: epitechcontent/epitest-docker
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run unit tests
+        shell: bash --noprofile --norc {0}
+        run: |
+          output=$(timeout 2m make tests_run -k CC=epiclang 2>&1)
+          exit_code=$?
+
+          if [ "$exit_code" -eq 124 ]; then
+            echo "::warning title=Test Timeout::Make timed out after 2 minutes"
+          fi
+
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^\[FAIL\]\ (.+):\ \(([0-9.]+s)\) ]]; then
+              echo "::warning title=Test Failed::${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^\[CRASH\]\ (.+):\ \(([0-9.]+s)\) ]]; then
+              echo "::warning title=Test Crashed::${BASH_REMATCH[1]}"
+            fi
+          done <<< "$output"
+
+          summary=$(echo "$output" | grep -E '^\[====\] Synthesis:' || true)
+          if [[ -n "$summary" ]]; then
+            failing=$(echo "$summary" | grep -oP 'Failing: \K[0-9]+' || true)
+            crashing=$(echo "$summary" | grep -oP 'Crashing: \K[0-9]+' || true)
+
+            [[ -n "$failing" && "$failing" -gt 0 ]] && echo "::warning title=Test Summary::$failing test(s) failed"
+            [[ -n "$crashing" && "$crashing" -gt 0 ]] && echo "::warning title=Test Summary::$crashing test(s) crashed"
+          fi
+
+          exit 0
+
+  push_to_mirror:
+    runs-on: ubuntu-latest
+    needs: run_tests
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: pixta-dev/repository-mirroring-action@v1
+        with:
+          target_repo_url: ${{ env.MIRROR_SSH_URL }}
+          ssh_private_key: ${{ secrets.GIT_SSH_PRIVATE_KEY }}
