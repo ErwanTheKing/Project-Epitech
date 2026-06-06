@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+
+import sys
+from math import sqrt
+
+def deviation(rms, art):
+    value = sqrt((rms ** 2) - (art ** 2))
+    return value
+
+def arithmetic(n, Xn, Xn1):
+    value = (float(Xn) * int(n) + float(Xn1)) / (int(n) + 1)
+    return value
+
+def root(n, rms, nb):
+    value = (rms ** 2 * n)
+    value = value + (nb ** 2)
+    value = sqrt(value / (n + 1))
+    return value
+
+def harmonic(n_nb, h, nb):
+    initial_sum = n_nb / h
+    final_sum = initial_sum + (1 / float(nb))
+    if final_sum == 0.:
+        exit(84)
+    value = (n_nb + 1) / final_sum
+
+    return value
+
+def help():
+    print("USAGE")
+    print("   ./104neutrinos n a h sd")
+    print()
+    print("DESCRIPTION")
+    print("    n       number of values")
+    print("    a       arithmetic mean")
+    print("    h       harmonic mean")
+    print("    sd      standard deviation")
+    exit(0)
+
+def neutrinos(argv):
+    nb = argv[1]
+    sd = argv[4]
+    art = argv[2]
+    har = argv[3]
+    try:
+        nb =int(nb)
+        sd =float(sd)
+        art =float(art)
+        har = float(har)
+    except ValueError:
+        exit(84)
+    if nb < 0 or sd < 0 or art < 0 or har <= 0:
+        exit(84)
+
+    rms = sqrt((art ** 2) + (sd ** 2))
+
+    while 1:
+        nb_input = input("Enter next value: ")
+        if nb_input == "":
+            exit(0)
+        if nb_input == "END":
+            exit(0)
+        try:
+            float(nb_input)
+        except ValueError:
+            exit(84)
+
+
+        art = arithmetic(nb, art, nb_input)
+        har = harmonic(nb, har, nb_input)
+        rms = root(nb, rms, float(nb_input))
+        sd = deviation(rms, art)
+        nb += 1
+
+        print(f"    Number of values:\t{nb}")
+        print(f"    Standard deviation:\t{sd:.2f}")
+        print(f"    Arithmetic mean:\t{art:.2f}")
+        print(f"    Root mean square:\t{rms:.2f}")
+        print(f"    Harmonic mean:\t{har:.2f}")
+
+        print("")
+
+def main(argv):
+    if len(argv) == 2 and argv[1] == "-h":
+        help()
+    if len(argv) != 5:
+        print("Invalid number of arguments")
+        exit(84)
+    neutrinos(argv)
+main(sys.argv)
