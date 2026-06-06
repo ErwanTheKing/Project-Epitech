@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+
+from math import sqrt, acos, degrees
+import sys
+
+def coordinates_x_y_z(x: float, y: float, z: float):
+    return [x, y, z]
+
+def sum_vector(vector_1: list, vector_2: list):
+    return [vector_1[i] + vector_2[i] for i in range (len(vector_1))]
+
+def diff_vector(vector_1: list, vector_2: list):
+    return [vector_1[i] - vector_2[i] for i in range (len(vector_1))]
+
+def mult_vector(vector: list, coef:float):
+    return [vector[i] * coef for i in range (len(vector))]
+
+def norm_vector(vector: list):
+    return sqrt(vector[0]**2 + vector[1]**2 + vector[2]**2)
+
+def pos_bal_t_plus_n(x0: float, y0: float, z0: float, x1: float, y1: float, z1: float, n: int):
+    return sum_vector(coordinates_x_y_z(x1, y1, z1), mult_vector(diff_vector(coordinates_x_y_z(x1, y1, z1), coordinates_x_y_z(x0, y0, z0)), n))
+
+def hit_the_bat(x0: float, y0: float, z0: float, x1: float, y1: float, z1: float, n: int):
+    if (pos_bal_t_plus_n(x0, y0, z0, x1, y1, z1, n)[2] > 0 and coordinates_x_y_z(x1, y1, z1)[2] > 0) or (pos_bal_t_plus_n(x0, y0, z0, x1, y1, z1, n)[2] < 0 and coordinates_x_y_z(x1, y1, z1)[2] < 0):
+        print("The ball won't reach the paddle.")
+        exit(0)
+    else:
+        return 0
+
+def scalar_product(vector_1: list, vector_2: list):
+    return vector_1[0] * vector_2[0] + vector_1[1] * vector_2[1] + vector_1[2] * vector_2[2]
+
+def get_angle(vector: list):
+    if (norm_vector(vector) * norm_vector([0, 0, 1])) == 0:
+        exit(0)
+    return abs(degrees(acos(scalar_product(vector, [0, 0, 1]) / (norm_vector(vector) * norm_vector([0, 0, 1])))) - 90)
+
+def main(argv : list):
+    if len(argv) == 2 and str(argv[1]) == "-h":
+        print("USAGE\n    ./101pong x0 y0 z0 x1 y1 z1 n\n\nDESCRIPTION\n    x0 ball abscissa at time t - 1\n    y0 ball ordinate at time t - 1\n    z0 ball altitude at time t - 1\n    x1 ball abscissa at time t\n    y1 ball ordinate at time t\n    z1 ball altitude at time t\n    n time shift (greater than or equal to zero, integer)")
+        exit(0)
+    if len(argv) != 8:
+        print("7 arguments required")
+        exit(84)
+    for i in argv[1:7]:
+        try:
+            tmp = float(i)
+        except ValueError:
+            exit(84)
+    try:
+        tmp = int(argv[7])
+    except ValueError:
+        exit(84)
+    else:
+        x0, y0, z0, x1, y1, z1, n = float(argv[1]), float(argv[2]), float(argv[3]), float(argv[4]), float(argv[5]), float(argv[6]), int(argv[7])
+        if n < 0:
+            print("n can't be negative")
+            exit(84)
+        print("The velocity vector of the ball is:")
+        print("(" + ", ".join(f"{x:.2f}" for x in diff_vector(coordinates_x_y_z(x1, y1, z1), coordinates_x_y_z(x0, y0, z0))) + ")")
+        print(f"At time t + {n}, ball coordinates will be:")
+        print("(" + ", ".join(f"{x:.2f}" for x in pos_bal_t_plus_n(x0, y0, z0, x1, y1, z1, n)) + ")")
+        hit_the_bat(x0, y0, z0, x1, y1, z1, n)
+        if hit_the_bat(x0, y0, z0, x1, y1, z1, n) == 0:
+            print("The incidence angle is:")
+            print(f"{get_angle(diff_vector(coordinates_x_y_z(x1, y1, z1), coordinates_x_y_z(x0, y0, z0))):.2f} degrees")
+
+main(sys.argv)
