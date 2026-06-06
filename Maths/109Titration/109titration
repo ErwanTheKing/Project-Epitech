@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+
+import sys
+import csv
+import os
+
+def verif_file(argv):
+    if not os.path.isfile(argv[1]):
+        exit(84)
+    if os.path.getsize(argv[1]) == 0:
+        exit(84)
+    seen = []
+    rows = []
+    with open(argv[1], mode="r") as file:
+        reader = csv.reader(file, delimiter=';')
+        for row in reader:
+            if len(row) != 2:
+                exit(84)
+            try:
+                v = float(row[0])
+                ph = float(row[1])
+            except ValueError:
+                exit(84)
+            if v < 0:
+                exit(84)
+            if v in seen:
+                exit(84)
+            seen.append(v)
+            rows.append([v, ph])
+    if len(rows) < 3:
+        exit(84)
+    rows.sort(key=lambda x: x[0])
+    return rows
+
+def help():
+    print("USAGE")
+    print("    ./109titration file\n")
+    print("DESCRIPTION")
+    print("    file    a csv file containing \"vol;ph\" lines")
+
+def slope(dv, ph1, ph2):
+    return (ph2 - ph1) / dv
+
+def derivative(rows):
+    result = []
+    print("Derivative:")
+    for i in range(1, len(rows) - 1):
+        left_dv  = rows[i][0]   - rows[i-1][0]
+        right_dv = rows[i+1][0] - rows[i][0]
+        left_s   = slope(left_dv,  rows[i-1][1], rows[i][1])
+        right_s  = slope(right_dv, rows[i][1],   rows[i+1][1])
+        total = left_dv + right_dv
+        left_w  = right_dv / total
+        right_w = left_dv  / total
+        d = left_w * left_s + right_w * right_s
+        result.append([rows[i][0], d])
+        print(f"{rows[i][0]:.1f} ml -> {d:.2f}")
+
+    max_idx = 0
+    for k in range(1, len(result)):
+        if result[k][1] > result[max_idx][1]:
+            max_idx = k
+
+    print()
+    print(f"Equivalence point at {result[max_idx][0]:.1f} ml")
+    print()
+    return result, max_idx
+
+def second_derivative(d1, max_idx):
+    n = len(d1)
+    d2 = []
+    print("Second derivative:")
+    for i in range(1, n - 1):
+        left_dv  = d1[i][0]   - d1[i-1][0]
+        right_dv = d1[i+1][0] - d1[i][0]
+        left_s   = slope(left_dv,  d1[i-1][1], d1[i][1])
+        right_s  = slope(right_dv, d1[i][1],   d1[i+1][1])
+        total = left_dv + right_dv
+        left_w  = right_dv / total
+        right_w = left_dv  / total
+        d = left_w * left_s + right_w * right_s
+        d2.append([d1[i][0], d])
+        print(f"{d1[i][0]:.1f} ml -> {d:.2f}")
+    print()
+    idx2 = max_idx - 1
+    idx2 = max(1, min(idx2, len(d2) - 2))
+
+    v_start = d2[idx2 - 1][0]
+    v_end   = d2[idx2 + 1][0]
+    first_k = round(10 * v_start)
+    last_k  = round(10 * v_end)
+
+    print("Second derivative estimated:")
+    near_val = None
+    near_v   = None
+
+    for k in range(first_k, last_k + 1):
+        v = k / 10.0
+        if v <= d2[idx2][0]:
+            v0, d0 = d2[idx2 - 1]
+            v1, d1v = d2[idx2]
+        else:
+            v0, d0 = d2[idx2]
+            v1, d1v = d2[idx2 + 1]
+        t = d0 + (v - v0) / (v1 - v0) * (d1v - d0)
+        print(f"{v:.1f} ml -> {t:.2f}")
+        if near_val is None or abs(t) < abs(near_val):
+            near_val = t
+            near_v   = v
+
+    print()
+    print(f"Equivalence point at {near_v:.1f} ml")
+
+def main(argv):
+    if len(argv) == 2 and argv[1] == "-h":
+        help()
+        exit(0)
+    if len(argv) != 2:
+        exit(84)
+    rows = verif_file(argv)
+    d1, max_idx = derivative(rows)
+    second_derivative(d1, max_idx)
+
+main(sys.argv)
