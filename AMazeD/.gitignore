@@ -1,0 +1,10 @@
+*.o
+.idea
+amazed
+hehe
+gen
+*.a
+*.txt
+include/my.h
+unit_tests
+*.gc*
