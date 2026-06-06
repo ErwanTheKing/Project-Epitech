@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+
+import math
+import sys
+import csv
+
+def help():
+    print("USAGE")
+    print("   ./105demography [code]+")
+    print("")
+    print("DESCRIPTION")
+    print("   code    country code")
+
+def name(argv):
+    country = []
+    i = 1
+    while i < len(argv):
+        with open("105demography_data.csv", mode='r') as file:
+            reader = csv.reader(file, delimiter=';')
+            for row in reader:
+                if argv[i] == row[1]:
+                    country.append(row[0])
+        i += 1
+        country.sort()
+        if not country:
+            exit(84)
+    if len(country) != len(argv) - 1:
+        exit(84)
+    return country
+
+def root_mean1(a1, b1, xs, ys):
+    return math.sqrt(sum((y - (a1 * x + b1)) ** 2 for x, y in zip(xs, ys)) / len(xs))
+
+def root_mean2(b2, a2, xs, ys):
+    return math.sqrt(sum((y - ((x - b2) / a2)) ** 2 for x, y in zip(xs, ys)) / len(xs))
+
+def correlation(Sxy, Sxx, Syy):
+    return Sxy / math.sqrt(Sxx * Syy)
+
+def write_message(a1, b1, rms1, a2, b2, rms2, r):
+    print("Fit1")
+    print(f"    Y = {a1:.2f} X {"+" if b1 > 0 else "-"} {abs(b1):.2f}")
+    print(f"    Root-mean-square deviation: {rms1:.2f}")
+    print(f"    Population in 2050: {a1 * 2050 + b1:.2f}")
+    print("Fit2")
+    print(f"    X = {a2:.2f} Y {"+" if b2 > 0 else "-"} {abs(b2):.2f}")
+    print(f"    Root-mean-square deviation: {rms2:.2f}")
+    print(f"    Population in 2050: {(2050 - b2) / a2:.2f}")
+    print(f"Correlation: {r:.4f}")
+
+def calc(argv):
+        with open("105demography_data.csv", mode='r') as file:
+            reader = csv.reader(file, delimiter=';')
+            rows = list(reader)
+            headers = rows[0]
+            xs = [int(y) for y in headers[2:]]
+            ys = [0.0] * len(xs)
+            for code in argv[1:]:
+                for row in rows[1:]:
+                    if row[1] == code:
+                        for i, v in enumerate(row[2:]):
+                            if v != "":
+                                ys[i] += int(v) / 1_000_000
+        n = len(xs)
+        xbar = sum(xs) / n
+        ybar = sum(ys) / n
+        Sxx = sum((x - xbar) ** 2 for x in xs)
+        Syy = sum((y - ybar) ** 2 for y in ys)
+        Sxy = sum((x - xbar) * (y - ybar) for x, y in zip(xs, ys))
+        a1 = Sxy / Sxx
+        b1 = ybar - a1 * xbar
+        a2 = Sxy / Syy
+        b2 = xbar - a2 * ybar
+        r = correlation(Sxy, Sxx, Syy)
+        rms1 = root_mean1(a1, b1, xs, ys)
+        rms2 = root_mean2(b2, a2, xs, ys)
+        write_message(a1, b1, rms1, a2, b2, rms2, r)
+
+def demography(argv):
+    j = 0
+    country = name(argv)
+    print("Country:", end="")
+    for i in country:
+        if j == 0:
+            print(f" {i}", end="")
+            j += 1
+        else :
+            print(f", {i}", end="")
+    print()
+    calc(argv)
+    exit(0)
+
+def main(argv):
+    if len(argv) == 1:
+        help()
+        exit(84)
+    if len(argv) == 2 and argv[1] == "-h":
+        help()
+        exit(0)
+    demography(argv)
+    exit(84)
+main(sys.argv)
