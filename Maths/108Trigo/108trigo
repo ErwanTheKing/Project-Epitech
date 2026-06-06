@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+
+import sys
+import math
+
+def help():
+    print("USAGE")
+    print("    ./108trigo fun a0 a1 a2 ...")
+    print("DESCRIPTION")
+    print("    fun     function to be applied, among at least \"EXP\", \"COS\", \"SIN\", \"COSH\" and \"SINH\"")
+    print("    ai      coeficients of the matrix")
+
+def verif_fun(argv):
+    fun = ["EXP","COS","SIN","COSH","SINH"]
+    if argv[1] in fun:
+        return 0
+    else:
+        return 84
+
+def create_matrix(argv):
+    n = math.sqrt(len(argv) - 2)
+    a = 2
+    if n.is_integer():
+        n = int(n)
+        matrix = [[0.0 for j in range(n)] for i in range(n)]
+        for i in range(n):
+            for j in range(n):
+                matrix[i][j] = float(argv[a])
+                a += 1
+        return matrix
+    else:
+        exit(84)
+
+def matrix_identity(matrix):
+    n = len(matrix)
+    matrix_id = [[0.0 for j in range(n)] for i in range(n)]
+    for i in range(n):
+        matrix_id[i][i] = 1
+    return matrix_id
+
+def mult_matrix(term, matrix):
+    n = len(matrix)
+    result = [[0.0 for j in range(n)] for i in range(n)]
+    for i in range(n):
+        for j in range(n):
+            for k in range(n):
+                result[i][j] += term[i][k] * matrix[k][j]
+    return result
+
+def div_matrix(fact, matrix):
+    n = len(matrix)
+    result = [[0.0 for j in range(n)] for i in range(n)]
+    for i in range(n):
+        for j in range(n):
+            result[i][j] = matrix[i][j] / fact
+    return result
+
+def add_matrix(result, matrix):
+    n = len(matrix)
+    C = [[0.0 for j in range(n)] for i in range(n)]
+    for i in range(n):
+        for j in range(n):
+            C[i][j] = matrix[i][j] + result[i][j]
+    return C
+
+def exp_matrix(matrix):
+    result = matrix_identity(matrix)
+    term = matrix_identity(matrix)
+    for k in range(1, 100):
+        term = div_matrix(k, mult_matrix(term, matrix))
+        result = add_matrix(result, term)
+    return result
+
+def cos_matrix(matrix):
+    result = matrix_identity(matrix)
+    term = matrix_identity(matrix)
+    fact = 1
+    sign = -1
+    matrix2 = mult_matrix(matrix, matrix)
+    for k in range(1, 31):
+        term = mult_matrix(term, matrix2)
+        t = 2 * k
+        fact = fact * (t - 1)
+        fact = fact * t
+        result = add_matrix(result, div_matrix(fact * sign, term))
+        sign = sign * -1
+    return result
+
+def sin_matrix(matrix):
+    result = [i[:] for i in matrix]
+    term = [i[:] for i in matrix]
+    fact = 1
+    sign = -1
+    matrix2 = mult_matrix(matrix, matrix)
+    for k in range(1, 31):
+        term = mult_matrix(term, matrix2)
+        fact = fact * (2 * k) * (2 * k + 1)
+        result = add_matrix(result, div_matrix(fact * sign, term))
+        sign = sign * -1
+    return result
+
+def cosh_matrix(matrix):
+    result = matrix_identity(matrix)
+    term = matrix_identity(matrix)
+    fact = 1
+    matrix2 = mult_matrix(matrix, matrix)
+    for k in range(1, 31):
+        term = mult_matrix(term, matrix2)
+        t = 2 * k
+        fact = fact * (t - 1)
+        fact = fact * t
+        result = add_matrix(result, div_matrix(fact, term))
+    return result
+
+def sinh_matrix(matrix):
+    result = [i[:] for i in matrix]
+    term = [i[:] for i in matrix]
+    fact = 1
+    matrix2 = mult_matrix(matrix, matrix)
+    for k in range(1, 31):
+        term = mult_matrix(term, matrix2)
+        fact = fact * (2 * k) * (2 * k + 1)
+        result = add_matrix(result, div_matrix(fact, term))
+    return result
+
+def trigo(argv):
+    matrix = create_matrix(argv)
+    if argv[1] == "EXP":
+        return exp_matrix(matrix)
+    if argv[1] == "COS":
+        return cos_matrix(matrix)
+    if argv[1] == "SIN":
+        return sin_matrix(matrix)
+    if argv[1] == "COSH":
+        return cosh_matrix(matrix)
+    if argv[1] == "SINH":
+        return sinh_matrix(matrix)
+    exit(84)
+
+def error_handling(argv):
+    if len(argv) <= 2:
+        exit(84)
+    for i in range(2, len(argv)):
+        try:
+            float(argv[i])
+        except ValueError:
+            exit(84)
+
+def main(argv):
+    if len(argv) == 2 and argv[1] == "-h":
+        help()
+        exit(0)
+    if error_handling(argv) == 84:
+        exit(84)
+    if verif_fun(argv) == 84:
+        exit(84)
+    result = trigo(argv)
+    for i in range(len(result)):
+        for j in range(len(result[i])):
+            if j == len(result[i])-1:
+                print(f"{result[i][j]:.2f}", end="")
+            else:
+                print(f"{result[i][j]:.2f}", end="\t")
+        print()
+
+main(sys.argv)
+
+# def caca():
+#     print("caca")
+#     print("le caca c'est la vie")
+#     print("caca c'est bon")
+#     print("caca c'est la santé")
+#     print("caca c'est la joie")
+#     print("caca c'est la paix")
+#     print("caca c'est la liberté")
+#     print("caca c'est la fraternité")
+#     print("caca c'est l'égalité")
