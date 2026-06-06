@@ -1,0 +1,230 @@
+# =========================
+# Global .gitignore for C projects (libmy + apps)
+# =========================
+
+
+# ---- Operating Systems ----
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+# Thumbnail cache
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux trash
+**/.Trash-*
+
+
+# ---- Editors & IDEs ----
+
+# JetBrains (CLion, IntelliJ, etc.)
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# Emacs
+*~
+.#*
+
+# Vim
+*.swp
+*.swo
+*.un~
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Nano
+*.save
+
+
+# ---- Build artifacts (C/C++) ----
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Temporary/backup files from tools
+*.d
+*.su
+*.lst
+
+# Static/shared libs and archives
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+
+# Precompiled headers
+*.gch
+
+# Executables
+a.out
+*.out
+*.exe
+
+# Common bin folders
+**/bin/
+/bin/
+
+# Build directories
+/build/
+/build-*/
+/obj/
+/obj-*/
+
+# Linker/index files
+*.map
+
+# Dependency files
+.deps/
+.depend
+include/
+
+
+# ---- Coverage & Test Outputs ----
+
+# Generic coverage data
+*.gcda
+*.gcno
+*.gcov
+coverage/
+coverage-html/
+
+# Generic test/coverage reports
+lcov-report/
+test-results/
+
+# Project-specific coverage outputs
+coverage.html
+coverage.css
+
+# Test binaries in this repo
+/unit_tests
+/tests/unit_tests
+/testing
+
+
+# ---- Make/CMake/Autotools ----
+
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile.in
+configure
+config.log
+config.status
+
+# Note: root `Makefile` and `lib/my/Makefile` are tracked on purpose.
+# Do not add `Makefile` here globally or you will hide them from git.
+
+
+# ---- Package managers / virtual envs ----
+
+# Python
+venv/
+.venv/
+ENV/
+
+# Node
+node_modules/
+
+# Conan
+.conan/
+
+
+# ---- IDE/tool caches, tags, indexes ----
+
+.cache/
+*.egg-info/
+*.egg
+.eggs/
+.pytest_cache/
+.tags
+ctags
+TAGS
+
+
+# ---- Logs and runtime files ----
+
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+
+# ---- Temporary files / backups ----
+
+*~
+*.swp
+*.swo
+*.bak
+*.orig
+*.tmp
+~*
+
+
+# ---- Secrets / Credentials ----
+
+.env
+.env.*
+.env.local
+*.pem
+*.key
+*.crt
+*.p12
+
+
+# ---- CI / Containers ----
+
+# GitHub Actions
+.github/workflows/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+
+# ---- Misc common ----
+
+*.class
+*.psd
+*.db
+*.sqlite
+
+
+# =========================
+# Project-specific rules for libmy / C projects
+# =========================
+
+# Generated static libs under lib/
+/lib/*.a
+
+# Root binary (if your project builds `main` at repo root)
+/main
+
+# Additional test and debug binaries
+/debug
+/debug_*/
+
+# Emacs lock files (optional)
+*#
+
+# End of .gitignore
+
+
+# Ignore project binary
+my_world
