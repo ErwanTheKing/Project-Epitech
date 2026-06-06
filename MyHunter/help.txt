@@ -1,0 +1,10 @@
+USAGE :
+    ./my_hunter
+
+DESCRIPTION :
+     - Game with a fixed camera, in which the player can shoot in some moving elements.
+     - You can chose your mode between mode Renaud and mode Eric.
+     - In mode Eric you are in god mode.
+     - Add 1 bird always 5 seconds.
+     - Increase speed always 10 seconds.
+     - You can pause the game with the escape key.
