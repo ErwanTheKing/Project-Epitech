@@ -1,0 +1,29 @@
+#compilation files
+*.a
+*.o
+testing
+my_ls
+
+#binary files
+main
+libmy
+a.out
+testing
+
+#unit_tests files
+*.gcda
+*.gcno
+*.html
+*.css
+unit_tests
+
+# Temporary files
+/temp
+*~
+'#*#'
+.#*
+*.tmp
+
+#random files
+.idea
+*.log
