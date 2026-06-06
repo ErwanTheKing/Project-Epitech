@@ -1,0 +1,114 @@
+/*
+** EPITECH PROJECT, 2026
+** 42sh
+** File description:
+** Full memory cleanup: free_alloc (NULL-safe free), free_array
+** (char** + each element), free_linked_list (env_t chain),
+** free_history (doubly-linked list), free_main (full teardown).
+** Authors: @Celz-Pch @Lukas-sgx @ErwanTheKing @sacha-lma @Jessymgadd
+*/
+
+#include "c_zsh.h"
+
+void free_alloc(void *object)
+{
+    if (object)
+        free(object);
+    object = NULL;
+}
+
+void free_linked_list(env_t *env)
+{
+    env_t *next;
+
+    while (env) {
+        next = env->next;
+        free_alloc(env->key);
+        free_alloc(env->value);
+        free_alloc(env);
+        env = next;
+    }
+}
+
+void free_array(char **array)
+{
+    if (!array)
+        return;
+    for (int i = 0; array[i] != NULL; i++)
+        free_alloc(array[i]);
+    free_alloc(array);
+}
+
+static void free_history(history_t *his, history_cmd_t *history)
+{
+    history_cmd_t *next = NULL;
+
+    for (history_cmd_t *curr = history; curr; curr = next) {
+        next = curr->next;
+        free_alloc(curr->cmd);
+        free_alloc(curr);
+    }
+    free_alloc(his->curr);
+    free_alloc(his);
+}
+
+static void free_jobs(job_controler_t *controler)
+{
+    job_controler_t *curr = controler;
+    job_controler_t *next = NULL;
+
+    for (; curr; curr = next) {
+        next = curr->next;
+        if (curr->job) {
+            free_array(curr->job->command);
+            free_alloc(curr->job);
+        }
+        free_alloc(curr);
+    }
+}
+
+static void free_alias(alias_stock_t *alias)
+{
+    alias_stock_t *next = NULL;
+
+    while (alias) {
+        next = alias->next;
+        free_alloc(alias->command);
+        free_alloc(alias->new_name);
+        free_alloc(alias);
+        alias = next;
+    }
+}
+
+static void free_plugins(builtin_command_t *builtin)
+{
+    builtin_command_t *next = NULL;
+
+    while (builtin) {
+        next = builtin->next;
+        free_alloc(builtin->name);
+        if (builtin->plugin)
+            dlclose(builtin->plugin);
+        free_alloc(builtin);
+        builtin = next;
+    }
+}
+
+void free_main(main_t *stock)
+{
+    if (!stock)
+        return;
+    free_alloc(stock->czshrc->prompt);
+    free_alloc(stock->czshrc);
+    free_array(stock->path);
+    free_array(stock->argv);
+    free_alloc(stock->redirection);
+    free_alloc(stock->old_path);
+    free_jobs(stock->controler);
+    free_alloc(stock->signal);
+    free_linked_list(stock->stock_env);
+    free_plugins(stock->builtin);
+    free_alias(stock->alias_stock);
+    free_history(stock->history, stock->history->history_cmd);
+    free_alloc(stock);
+}

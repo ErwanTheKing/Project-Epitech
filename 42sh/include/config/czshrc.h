@@ -1,0 +1,57 @@
+/*
+** EPITECH PROJECT, 2026
+** 42sh
+** File description:
+** RC configuration structures: czshrc_t holds the full config;
+** prompt_t holds per-component flags and ANSI color codes.
+** Declares update_rc(), set_default_rc(), manage_prompt().
+** Authors: @Celz-Pch @Lukas-sgx @ErwanTheKing @sacha-lma @Jessymgadd
+*/
+
+#ifndef CZ_SHRT_H
+    #define CZ_SHRT_H
+
+    #include <stdbool.h>
+
+typedef struct alias_stock_s alias_stock_t;
+
+typedef enum date_format_e {
+    LONG,
+    EU,
+    US,
+    ISO
+} date_format_t;
+
+typedef struct infos_s {
+    bool toggle;
+    int color;
+    int b_color;
+} infos_t;
+
+typedef struct prompt_s {
+    int len_prompt;
+    infos_t git_branch;
+    infos_t folder;
+    infos_t user;
+    infos_t date;
+    infos_t time;
+    date_format_t date_format;
+} prompt_t;
+
+typedef struct czshrc_s {
+    prompt_t *prompt;
+    alias_stock_t *aliases;
+} czshrc_t;
+
+typedef struct buffer_s {
+    int *len;
+    char **buffer;
+    int *cursor;
+} buffer_t;
+
+void set_default_rc(czshrc_t *rc);
+void manage_prompt(czshrc_t *rc, char ***rc_parsed, int i);
+void manage_alias(czshrc_t *rc, char ***rc_parsed, int i);
+czshrc_t *update_rc(char *path);
+
+#endif

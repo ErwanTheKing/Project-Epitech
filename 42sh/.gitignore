@@ -1,0 +1,17 @@
+*.o
+.claude
+*.a
+*.gcno
+*.gcda
+unit_tests
+*.log
+42sh
+Logs
+.idea
+.c_zsh_history
+test/
+output
+vgcore*
+test_shell
+*.so
+install

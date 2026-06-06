@@ -1,0 +1,62 @@
+/*
+** EPITECH PROJECT, 2026
+** 42sh
+** File description:
+** test_exec_error_case
+*/
+
+#include <criterion/criterion.h>
+#include <criterion/redirect.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include "../include/c_zsh.h"
+
+#ifndef W_EXITCODE
+#define W_EXITCODE(ret, sig) (((ret) << 8) | (sig))
+#endif
+
+static char *create_temp_file(const char *content, mode_t mode)
+{
+    char template[] = "/tmp/42sh_exec_errXXXXXX";
+    int fd = mkstemp(template);
+    char *path;
+
+    cr_assert(fd != -1);
+    cr_assert_eq(write(fd, content, my_strlen((char *)content)), (ssize_t)my_strlen((char *)content));
+    cr_assert_eq(fchmod(fd, mode), 0);
+    close(fd);
+    path = strdup(template);
+    cr_assert_not_null(path);
+    return path;
+}
+
+Test(child_exec, returns_126_for_enoexec)
+{
+    command_ctx_t ctx = {0};
+    char *argv[] = {"broken", NULL};
+    char *env[] = {NULL};
+    char *path = create_temp_file("not a binary\n", 0755);
+
+    cr_redirect_stderr();
+    ctx.command = "broken";
+    ctx.argv = argv;
+    cr_assert_eq(child_exec(&ctx, path, env), 126);
+    unlink(path);
+    free(path);
+}
+
+Test(child_exec, returns_126_for_eacces)
+{
+    command_ctx_t ctx = {0};
+    char *argv[] = {"noexec", NULL};
+    char *env[] = {NULL};
+    char *path = create_temp_file("echo hi\n", 0644);
+
+    cr_redirect_stderr();
+    ctx.command = "noexec";
+    ctx.argv = argv;
+    cr_assert_eq(child_exec(&ctx, path, env), 126);
+    unlink(path);
+    free(path);
+}

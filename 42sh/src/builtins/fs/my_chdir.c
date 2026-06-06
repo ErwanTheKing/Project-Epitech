@@ -1,0 +1,134 @@
+/*
+** EPITECH PROJECT, 2026
+** 42sh
+** File description:
+** cd builtin: resolve_path handles ~(HOME) and -(OLDPWD);
+** save_old_path stores current PWD; change_pwd and change_env
+** update both PWD and OLDPWD in the env_t linked list.
+** Authors: @Celz-Pch @Lukas-sgx @ErwanTheKing @sacha-lma @Jessymgadd
+*/
+
+#include "../../../include/c_zsh.h"
+
+int my_chdir_call(char *path)
+{
+    if (chdir(path) == -1) {
+        my_putstrerror(path);
+        my_putstrerror(": Permission denied.\n");
+        return 1;
+    }
+    return SUCCESS;
+}
+
+static char *resolve_path(main_t *main_stock, command_ctx_t *ctx)
+{
+    char *path = ctx->arg_command[0];
+
+    if (!path || my_strcmp(path, "~") == 0)
+        return main_stock->home;
+    if (my_strcmp(path, "-") == 0) {
+        if (!main_stock->old_path)
+            return NULL;
+        return main_stock->old_path;
+    }
+    return path;
+}
+
+static int check_path(char *path)
+{
+    struct stat st;
+
+    if (stat(path, &st) == -1) {
+        my_putstrerror(path);
+        my_putstrerror(": No such file or directory.\n");
+        return 1;
+    }
+    if (!S_ISDIR(st.st_mode)) {
+        my_putstrerror(path);
+        my_putstrerror(": Not a directory.\n");
+        return 1;
+    }
+    return SUCCESS;
+}
+
+static void save_old_path(main_t *main_stock)
+{
+    char *cwd = getcwd(NULL, 0);
+
+    if (!cwd)
+        return;
+    if (main_stock->old_path)
+        free(main_stock->old_path);
+    main_stock->old_path = cwd;
+}
+
+static int change_pwd(env_t *tmp, main_t *main_stock, char *path)
+{
+    if (strcmp(tmp->key, "OLDPWD") == 0) {
+        if (tmp->value)
+            free(tmp->value);
+        tmp->value = strdup(main_stock->old_path);
+        if (!tmp->value)
+            return FAILURE;
+    }
+    if (strcmp(tmp->key, "PWD") == 0) {
+        if (tmp->value)
+            free(tmp->value);
+        tmp->value = strdup(path);
+        if (!tmp->value)
+            return FAILURE;
+    }
+    return SUCCESS;
+}
+
+static int change_env(env_t **env, main_t *main_stock)
+{
+    char *path = getcwd(NULL, 0);
+
+    if (!path)
+        return FAILURE;
+    for (env_t *tmp = *env; tmp; tmp = tmp->next)
+        if (change_pwd(tmp, main_stock, path) == FAILURE)
+            return FAILURE;
+    if (path)
+        free(path);
+    return SUCCESS;
+}
+
+static void cwdcmd(main_t *main_stock)
+{
+    for (env_t *tmp = main_stock->stock_local_var; tmp; tmp = tmp->next)
+        if (strcmp(tmp->key, "cwdcmd") == 0)
+            execute_command(main_stock, tmp->value);
+}
+
+int builtin_cd(main_t *main_stock, command_ctx_t *ctx)
+{
+    char *path = resolve_path(main_stock, ctx);
+
+    if (!path)
+        return 1;
+    if (check_path(path) == 1)
+        return 1;
+    path = strdup(path);
+    if (!path)
+        return FAILURE;
+    save_old_path(main_stock);
+    if (my_chdir_call(path) == 1) {
+        free(path);
+        return 1;
+    }
+    if (path)
+        free(path);
+    change_env(&main_stock->stock_env, main_stock);
+    cwdcmd(main_stock);
+    return SUCCESS;
+}
+
+int my_chdir(main_t *main_stock)
+{
+    command_ctx_t ctx = {0};
+
+    ctx.arg_command = main_stock->arg_command;
+    return builtin_cd(main_stock, &ctx);
+}
